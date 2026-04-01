@@ -12,13 +12,10 @@ import { cn } from "../utils/cn";
 import { askGemini } from "../utils/gemini";
 import { Radio } from "lucide-react";
 
-// Core Tiles
 import LiveFeed from "./tiles/LiveFeed";
 import Climate from "./tiles/Climate";
 import SmartLock from "./tiles/SmartLock";
 import Terminal from "./tiles/Terminal";
-
-// Expansion Tiles
 import PowerMatrix from "./tiles/PowerMatrix";
 import NetShield from "./tiles/NetShield";
 import DroneControl from "./tiles/DroneControl";
@@ -31,23 +28,15 @@ Given a voice command, return ONLY a JSON object (no markdown) with the action t
 Available actions:
 - {"action":"crisis_on"} — activate crisis/lockdown mode
 - {"action":"crisis_off"} — deactivate crisis mode
-- {"action":"lock"} — lock all doors
-- {"action":"unlock"} — unlock all doors
-- {"action":"lights_on"} — turn lights on
-- {"action":"lights_off"} — turn lights off
-- {"action":"deploy_drone"} — deploy the drone
-- {"action":"recall_drone"} — recall the drone
-- {"action":"set_temp","value":NUMBER} — set temperature
-- {"action":"shield_on"} — activate firewall
-- {"action":"shield_off"} — deactivate firewall
-- {"action":"garage_open"} — open garage
-- {"action":"garage_close"} — close garage
-- {"action":"scan_face"} — scan/analyze face on camera
-- {"action":"floor_plan"} — show floor plan
-- {"action":"diagnostics"} — show system diagnostics
-- {"action":"stream"} — open remote streaming panel
+- {"action":"lock"} / {"action":"unlock"}
+- {"action":"lights_on"} / {"action":"lights_off"}
+- {"action":"deploy_drone"} / {"action":"recall_drone"}
+- {"action":"set_temp","value":NUMBER}
+- {"action":"shield_on"} / {"action":"shield_off"}
+- {"action":"garage_open"} / {"action":"garage_close"}
+- {"action":"scan_face"} / {"action":"floor_plan"} / {"action":"diagnostics"} / {"action":"stream"}
 - {"action":"unknown","message":"brief response"} — if not recognized
-Parse the user's natural language into the closest action. Always respond with valid JSON only.`;
+Parse the user's natural language. Always respond with valid JSON only.`;
 
 export default function Dashboard() {
   const { 
@@ -71,14 +60,10 @@ export default function Dashboard() {
   const recognitionRef = useRef(null);
   const liveFeedRef = useRef(null);
 
-  // Auto-open stream manager on mobile
   useEffect(() => {
-    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-      setShowStreamManager(true);
-    }
+    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) setShowStreamManager(true);
   }, []);
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e) => {
       if (e.ctrlKey && e.shiftKey) {
@@ -122,10 +107,10 @@ export default function Dashboard() {
   }, [isCrisisMode, toggleCrisisMode, setIsLocked, setLights, setDroneDeployed, setTemperature, setShieldActive, setGarageOpen]);
 
   const handleMicClick = useCallback(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) { alert("Speech Recognition not supported. Use Chrome."); return; }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { alert("Speech Recognition not supported. Use Chrome."); return; }
     setShowVoiceModal(true); setVoiceText(""); setVoiceResponse(""); setVoiceStatus("listening");
-    const recognition = new SpeechRecognition();
+    const recognition = new SR();
     recognition.lang = "en-US"; recognition.interimResults = true; recognition.maxAlternatives = 1;
     recognitionRef.current = recognition;
     recognition.onresult = (event) => {
@@ -133,18 +118,16 @@ export default function Dashboard() {
       setVoiceText(transcript);
       if (event.results[event.results.length - 1].isFinal) processVoiceCommand(transcript);
     };
-    recognition.onerror = (event) => {
-      if (event.error === "no-speech") { setVoiceStatus("error"); setVoiceResponse("No speech detected."); setTimeout(() => setShowVoiceModal(false), 2000); }
-    };
+    recognition.onerror = () => { setVoiceStatus("error"); setVoiceResponse("No speech detected."); setTimeout(() => setShowVoiceModal(false), 2000); };
     recognition.start();
   }, []);
 
   const processVoiceCommand = async (transcript) => {
     setVoiceStatus("processing");
     try {
-      const response = await askGemini(`Voice command: "${transcript}"`, VOICE_SYSTEM_PROMPT);
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      if (jsonMatch) { setVoiceResponse(executeCommand(JSON.parse(jsonMatch[0]))); setVoiceStatus("executed"); }
+      const resp = await askGemini(`Voice command: "${transcript}"`, VOICE_SYSTEM_PROMPT);
+      const m = resp.match(/\{[\s\S]*\}/);
+      if (m) { setVoiceResponse(executeCommand(JSON.parse(m[0]))); setVoiceStatus("executed"); }
       else { setVoiceResponse("Parse failed."); setVoiceStatus("error"); }
     } catch {
       const lower = transcript.toLowerCase();
@@ -152,71 +135,49 @@ export default function Dashboard() {
       if (lower.includes("crisis") || lower.includes("lockdown")) {
         if (lower.includes("off") || lower.includes("stop") || lower.includes("cancel")) { if (isCrisisMode) toggleCrisisMode(); result = "Crisis OFF."; }
         else { if (!isCrisisMode) toggleCrisisMode(); result = "Crisis ON."; }
-      } else if (lower.includes("lock")) {
-        if (lower.includes("un")) { setIsLocked(false); result = "Unlocked."; } else { setIsLocked(true); result = "Locked."; }
-      } else if (lower.includes("light")) {
+      } else if (lower.includes("lock")) { lower.includes("un") ? setIsLocked(false) : setIsLocked(true); result = lower.includes("un") ? "Unlocked." : "Locked."; }
+      else if (lower.includes("light")) { 
         if (lower.includes("off")) { setLights(l => ({ ...l, main: { on: false, intensity: 0, color: '#ffffff' } })); result = "Lights off."; }
         else { setLights(l => ({ ...l, main: { on: true, intensity: 80, color: '#ffffff' } })); result = "Lights on."; }
-      } else if (lower.includes("drone")) {
-        if (lower.includes("recall")) { setDroneDeployed(false); result = "Drone recalled."; } else { setDroneDeployed(true); result = "Drone deployed."; }
-      }
+      } else if (lower.includes("drone")) { lower.includes("recall") ? setDroneDeployed(false) : setDroneDeployed(true); result = lower.includes("recall") ? "Drone recalled." : "Drone deployed."; }
       setVoiceResponse(result); setVoiceStatus("executed");
     }
     setTimeout(() => setShowVoiceModal(false), 2500);
   };
 
-  const getVideoRef = () => {
-    if (liveFeedRef.current?.getVideo) return { current: liveFeedRef.current.getVideo() };
-    return null;
-  };
+  const getVideoRef = () => liveFeedRef.current?.getVideo ? { current: liveFeedRef.current.getVideo() } : null;
+  const tileClass = (extra = "") => cn("rounded-2xl overflow-hidden transition-all duration-700", isCrisisMode ? "glass-panel-crisis" : "glass-panel", extra);
 
   return (
-    <div className="flex h-full w-full relative overflow-hidden">
-      {/* Sidebar — hidden on mobile */}
-      <div className="hidden md:block">
-        <Sidebar 
-          onMicClick={handleMicClick}
-          onFloorPlan={() => setShowFloorPlan(true)}
-          onDiagnostics={() => setShowDiagnostics(true)}
-          onActivityLog={() => setShowActivityLog(true)}
-        />
+    <div className="flex h-screen w-screen relative overflow-hidden max-md:flex-col max-md:h-auto max-md:min-h-screen max-md:overflow-y-auto">
+      {/* Sidebar — desktop only */}
+      <div className="hidden md:block shrink-0">
+        <Sidebar onMicClick={handleMicClick} onFloorPlan={() => setShowFloorPlan(true)} onDiagnostics={() => setShowDiagnostics(true)} onActivityLog={() => setShowActivityLog(true)} />
       </div>
       
-      {/* Main Grid — responsive */}
-      <div className="flex-1 overflow-hidden md:overflow-hidden overflow-y-auto relative z-10 h-full p-2 sm:p-3 md:p-4">
-        <div 
-          className="w-full gap-2 sm:gap-3"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-            gridTemplateRows: 'auto',
-          }}
-        >
-          {/* Desktop: explicit grid — Mobile: auto-flow */}
-          <div className={cn("rounded-2xl overflow-hidden flex flex-col p-2 sm:p-3 transition-all duration-700 min-h-[200px] sm:min-h-[250px]", isCrisisMode ? "glass-panel-crisis" : "glass-panel")}
-            style={{ gridColumn: typeof window !== 'undefined' && window.innerWidth >= 768 ? '1 / 3' : undefined }}>
-            <LiveFeed ref={liveFeedRef} onScanFace={() => setShowFaceScanner(true)} remoteStream={remoteStream} />
-          </div>
-          <div className={cn("rounded-2xl overflow-hidden p-3 sm:p-4 transition-all duration-700 min-h-[200px]", isCrisisMode ? "glass-panel-crisis" : "glass-panel")}><Climate /></div>
-          <div className={cn("rounded-2xl overflow-hidden p-3 sm:p-4 flex flex-col transition-all duration-700 relative min-h-[200px]", isCrisisMode ? "glass-panel-crisis" : "glass-panel")}><SmartLock /></div>
-          <div className={cn("rounded-2xl overflow-hidden p-3 sm:p-4 transition-all duration-700 min-h-[200px]", isCrisisMode ? "glass-panel-crisis" : "glass-panel")}
-            style={{ gridColumn: typeof window !== 'undefined' && window.innerWidth >= 768 ? 'span 2' : undefined }}><Terminal /></div>
-          <div className={cn("rounded-2xl overflow-hidden p-3 sm:p-4 transition-all duration-700 min-h-[200px]", isCrisisMode ? "glass-panel-crisis" : "glass-panel")}><PowerMatrix /></div>
-          <div className={cn("rounded-2xl overflow-hidden p-3 sm:p-4 transition-all duration-700 min-h-[200px]", isCrisisMode ? "glass-panel-crisis" : "glass-panel")}><NetShield /></div>
-          <div className={cn("rounded-2xl overflow-hidden p-3 sm:p-4 transition-all duration-700 min-h-[200px]", isCrisisMode ? "glass-panel-crisis" : "glass-panel")}><DroneControl onOpenDroneView={() => setShowDroneView(true)} /></div>
-          <div className={cn("rounded-2xl overflow-hidden p-3 sm:p-4 transition-all duration-700 min-h-[200px]", isCrisisMode ? "glass-panel-crisis" : "glass-panel")}><SecureVault /></div>
-          <div className={cn("rounded-2xl overflow-hidden p-3 sm:p-4 transition-all duration-700 min-h-[200px]", isCrisisMode ? "glass-panel-crisis" : "glass-panel")}><AINexus /></div>
-          <div className={cn("rounded-2xl overflow-hidden p-3 sm:p-4 transition-all duration-700 min-h-[200px]", isCrisisMode ? "glass-panel-crisis" : "glass-panel")}><LightingOps /></div>
+      {/* MAIN GRID — uses CSS classes from index.css */}
+      <div className="flex-1 overflow-hidden h-full p-4 max-md:overflow-visible max-md:p-2 max-md:h-auto">
+        <div className="dashboard-grid">
+          <div className={tileClass("tile-livefeed p-3")}><LiveFeed ref={liveFeedRef} onScanFace={() => setShowFaceScanner(true)} remoteStream={remoteStream} /></div>
+          <div className={tileClass("tile-climate p-4")}><Climate /></div>
+          <div className={tileClass("tile-smartlock p-4 flex flex-col relative")}><SmartLock /></div>
+          <div className={tileClass("tile-terminal p-4")}><Terminal /></div>
+          <div className={tileClass("tile-power p-4")}><PowerMatrix /></div>
+          <div className={tileClass("tile-netshield p-4")}><NetShield /></div>
+          <div className={tileClass("tile-drone p-4")}><DroneControl onOpenDroneView={() => setShowDroneView(true)} /></div>
+          <div className={tileClass("tile-vault p-4")}><SecureVault /></div>
+          <div className={tileClass("tile-ainexus p-4")}><AINexus /></div>
+          <div className={tileClass("tile-lighting p-4")}><LightingOps /></div>
         </div>
       </div>
 
-      {/* Mobile Bottom Bar */}
+      {/* Mobile Bottom Nav */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/90 backdrop-blur-xl border-t border-white/10 flex items-center justify-around py-2 px-4 safe-bottom">
         <button onClick={handleMicClick} className="p-3 rounded-full bg-cyan-500/20 border border-cyan-500/30 cursor-pointer">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-cyan-400"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
         </button>
         <button onClick={() => setShowFloorPlan(true)} className="p-3 rounded-xl bg-white/5 border border-white/10 cursor-pointer">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white/50"><path d="M3 7V5c0-1.1.9-2 2-2h2"/><path d="M17 3h2c1.1 0 2 .9 2 2v2"/><path d="M21 17v2c0 1.1-.9 2-2 2h-2"/><path d="M7 21H5c-1.1 0-2-.9-2-2v-2"/><rect width="7" height="5" x="7" y="7" rx="1"/><rect width="7" height="5" x="10" y="12" rx="1"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white/50"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
         </button>
         <button onClick={() => setShowDiagnostics(true)} className="p-3 rounded-xl bg-white/5 border border-white/10 cursor-pointer">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white/50"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
@@ -229,14 +190,13 @@ export default function Dashboard() {
       {/* Stream indicator (desktop) */}
       <button onClick={() => setShowStreamManager(true)}
         className={cn("hidden md:flex fixed bottom-4 left-4 z-50 items-center gap-2 px-3 py-2 rounded-xl border backdrop-blur-md cursor-pointer transition-all",
-          remoteStream ? "bg-emerald-950/40 border-emerald-500/30 text-emerald-400" : "bg-black/40 border-white/10 text-white/30 hover:text-white/60 hover:border-white/20"
-        )}
-      >
+          remoteStream ? "bg-emerald-950/40 border-emerald-500/30 text-emerald-400" : "bg-black/40 border-white/10 text-white/30 hover:text-white/60"
+        )}>
         <Radio size={14} />
-        <span className="font-mono text-[9px] uppercase tracking-widest">{remoteStream ? "Remote Connected" : "Stream"}</span>
+        <span className="font-mono text-[9px] uppercase tracking-widest">{remoteStream ? "Connected" : "Stream"}</span>
       </button>
 
-      {/* ═══ OVERLAYS ═══ */}
+      {/* OVERLAYS */}
       <AnimatePresence>{showDroneView && <DroneView onClose={() => setShowDroneView(false)} />}</AnimatePresence>
       <AnimatePresence>{showFaceScanner && <FaceScanner videoRef={getVideoRef()} onClose={() => setShowFaceScanner(false)} />}</AnimatePresence>
       <AnimatePresence>{showFloorPlan && <FloorPlan onClose={() => setShowFloorPlan(false)} />}</AnimatePresence>
@@ -249,10 +209,10 @@ export default function Dashboard() {
         {isCrisisMode && (
           <motion.div initial={{ y: -100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -100, opacity: 0 }}
             onClick={toggleCrisisMode}
-            className="fixed top-4 left-1/2 -translate-x-1/2 bg-red-600/90 backdrop-blur-md border border-red-400 text-white px-4 sm:px-8 py-2 sm:py-3 rounded-full font-bold tracking-[0.15em] sm:tracking-[0.2em] shadow-[0_0_40px_rgba(220,38,38,0.5)] flex items-center gap-2 sm:gap-4 text-xs sm:text-sm z-[100] cursor-pointer hover:bg-red-500/90 transition-colors"
+            className="fixed top-4 left-1/2 -translate-x-1/2 bg-red-600/90 backdrop-blur-md border border-red-400 text-white px-4 sm:px-8 py-2 sm:py-3 rounded-full font-bold tracking-[0.15em] shadow-[0_0_40px_rgba(220,38,38,0.5)] flex items-center gap-2 sm:gap-4 text-xs sm:text-sm z-[100] cursor-pointer hover:bg-red-500/90 transition-colors"
           >
             <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-white animate-pulse" />
-            <span className="hidden sm:inline">CRITICAL ALERT — CLICK TO DEACTIVATE</span>
+            <span className="hidden sm:inline">CRITICAL — CLICK TO DEACTIVATE</span>
             <span className="sm:hidden">⚠ TAP TO STAND DOWN</span>
             <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-white animate-pulse" />
           </motion.div>
@@ -263,24 +223,18 @@ export default function Dashboard() {
       <AnimatePresence>
         {showVoiceModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/60 backdrop-blur-md p-4"
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md p-4"
             onClick={(e) => { if (e.target === e.currentTarget) { recognitionRef.current?.stop(); setShowVoiceModal(false); }}}
           >
             <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
-              className="glass-panel rounded-[2rem] px-6 sm:px-10 py-6 sm:py-8 flex flex-col items-center gap-4 sm:gap-6 shadow-[0_0_50px_rgba(34,211,238,0.2)] w-full max-w-[440px]"
+              className="glass-panel rounded-[2rem] px-6 sm:px-10 py-6 sm:py-8 flex flex-col items-center gap-4 sm:gap-6 w-full max-w-[440px]"
             >
               <div className="flex items-center gap-3">
                 {voiceStatus === "listening" && (
-                  <>
-                    <div className="flex gap-1 items-center h-8">
-                      {[...Array(5)].map((_, i) => (
-                        <motion.div key={i} animate={{ height: ["20%", "100%", "20%"] }}
-                          transition={{ duration: 0.5 + Math.random() * 0.5, repeat: Infinity, ease: "easeInOut", delay: i * 0.1 }}
-                          className="w-1.5 bg-cyan-400 rounded-full shadow-[0_0_10px_rgba(34,211,238,0.8)]" />
-                      ))}
-                    </div>
-                    <span className="font-mono text-[10px] uppercase tracking-widest text-cyan-400 animate-pulse">Listening...</span>
-                  </>
+                  <><div className="flex gap-1 items-center h-8">{[...Array(5)].map((_, i) => (
+                    <motion.div key={i} animate={{ height: ["20%", "100%", "20%"] }} transition={{ duration: 0.5 + Math.random() * 0.5, repeat: Infinity, ease: "easeInOut", delay: i * 0.1 }}
+                      className="w-1.5 bg-cyan-400 rounded-full shadow-[0_0_10px_rgba(34,211,238,0.8)]" />
+                  ))}</div><span className="font-mono text-[10px] uppercase tracking-widest text-cyan-400 animate-pulse">Listening...</span></>
                 )}
                 {voiceStatus === "processing" && <><div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" /><span className="font-mono text-[10px] uppercase tracking-widest text-violet-400">Processing...</span></>}
                 {voiceStatus === "executed" && <span className="font-mono text-[10px] uppercase tracking-widest text-emerald-400">✓ Executed</span>}
@@ -296,15 +250,13 @@ export default function Dashboard() {
                     voiceStatus === "executed" ? "border-emerald-500/30 bg-emerald-950/30 text-emerald-300" : "border-red-500/30 bg-red-950/30 text-red-300"
                   )}>{voiceResponse}</motion.div>
               )}
-              <div className="font-mono text-[8px] sm:text-[9px] text-white/30 text-center">
-                "crisis mode" • "lights off" • "deploy drone" • "scan face" • "show floor plan"
-              </div>
+              <div className="font-mono text-[8px] sm:text-[9px] text-white/30 text-center">"crisis mode" • "lights off" • "deploy drone" • "scan face"</div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Crisis 911 — desktop only */}
+      {/* Crisis 911 — desktop */}
       <AnimatePresence>
         {isCrisisMode && (
           <motion.div initial={{ x: "120%", opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: "120%", opacity: 0 }}
@@ -312,11 +264,9 @@ export default function Dashboard() {
           >
             <span className="text-red-400/80 font-mono text-xs uppercase tracking-[0.3em] mb-3 font-bold">Emergency override</span>
             <div className="flex items-center gap-5">
-              <div className="relative flex items-center justify-center">
-                <div className="absolute inset-0 border-[3px] border-red-500/30 rounded-full animate-ping" />
-                <div className="w-12 h-12 border-t-[3px] border-b-[3px] border-red-500 rounded-full animate-[spin_1.5s_linear_infinite]" />
-              </div>
-              <span className="text-red-100 font-bold text-3xl tracking-widest uppercase drop-shadow-[0_0_15px_rgba(220,38,38,0.9)]">Dialing 911</span>
+              <div className="relative"><div className="absolute inset-0 border-[3px] border-red-500/30 rounded-full animate-ping" />
+                <div className="w-12 h-12 border-t-[3px] border-b-[3px] border-red-500 rounded-full animate-[spin_1.5s_linear_infinite]" /></div>
+              <span className="text-red-100 font-bold text-3xl tracking-widest uppercase">Dialing 911</span>
             </div>
             <button onClick={toggleCrisisMode} className="mt-4 py-2 px-4 bg-white/10 border border-white/20 rounded-lg font-mono text-[10px] uppercase tracking-widest text-white/60 hover:bg-white/20 hover:text-white transition-colors cursor-pointer">
               Override — Stand Down

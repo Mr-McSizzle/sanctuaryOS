@@ -72,6 +72,52 @@ body {
   background: rgba(40, 0, 0, 0.6);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(239, 68, 68, 0.4); /* Red 500 */
+  border: 1px solid rgba(239, 68, 68, 0.4);
   box-shadow: 0 0 30px rgba(220, 38, 38, 0.15) inset, 0 10px 40px -5px rgba(0, 0, 0, 0.8);
+}
+
+/* ═══ Dashboard Grid ═══ */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 0.75rem;
+  width: 100%;
+  height: 100%;
+}
+
+/* Explicit grid placements — desktop */
+.tile-livefeed  { grid-column: 1 / 3; grid-row: 1 / 2; }
+.tile-climate   { grid-column: 3 / 4; grid-row: 1 / 2; }
+.tile-smartlock { grid-column: 4 / 5; grid-row: 1 / 2; }
+.tile-terminal  { grid-column: 1 / 3; grid-row: 2 / 3; }
+.tile-power     { grid-column: 3 / 4; grid-row: 2 / 3; }
+.tile-netshield { grid-column: 4 / 5; grid-row: 2 / 3; }
+.tile-drone     { grid-column: 1 / 2; grid-row: 3 / 4; }
+.tile-vault     { grid-column: 2 / 3; grid-row: 3 / 4; }
+.tile-ainexus   { grid-column: 3 / 4; grid-row: 3 / 4; }
+.tile-lighting  { grid-column: 4 / 5; grid-row: 3 / 4; }
+
+/* Mobile: stack tiles */
+@media (max-width: 767px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    height: auto;
+    padding-bottom: 80px; /* space for bottom nav */
+  }
+  .tile-livefeed,
+  .tile-climate,
+  .tile-smartlock,
+  .tile-terminal,
+  .tile-power,
+  .tile-netshield,
+  .tile-drone,
+  .tile-vault,
+  .tile-ainexus,
+  .tile-lighting {
+    grid-column: 1 / -1 !important;
+    grid-row: auto !important;
+    min-height: 200px;
+  }
 }
