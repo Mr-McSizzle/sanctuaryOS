@@ -1,16 +1,72 @@
-# React + Vite
+# Sanctuary.OS
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**Experimental smart-home command center for security, environment control, live feeds, and AI-assisted voice commands.**
 
-Currently, two official plugins are available:
+Sanctuary.OS is a React prototype for a unified residential control surface. The interface brings together security state, lighting, climate, camera / stream views, network status, drone controls, diagnostics, and a crisis-mode workflow in one dashboard.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+> Prototype only. The current repository primarily demonstrates interface, orchestration, and simulated control logic; it should not be interpreted as a production physical-security system.
 
-## React Compiler
+## What the interface includes
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Authentication screen and system dashboard
+- Smart-lock state and crisis / lockdown mode
+- Lighting and climate controls
+- Live-feed and stream-management views
+- Face-scanner interface
+- Floor-plan and activity-log views
+- Network / firewall status
+- Drone-control interface
+- Power and system diagnostics
+- Secure-vault and AI-assistant panels
 
-## Expanding the ESLint configuration
+## AI-assisted command layer
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+The dashboard includes a natural-language command path that maps user requests to a small set of structured actions such as:
+
+- lock / unlock
+- lights on / off
+- set temperature
+- deploy / recall drone
+- enable / disable network shield
+- open / close garage
+- activate / deactivate crisis mode
+
+The current implementation can use Google's Generative AI SDK for command parsing and also contains local fallback parsing for several command types.
+
+## System flow
+
+```text
+user command / dashboard interaction
+              ↓
+       UI orchestration
+              ↓
+      shared system state
+       ↙      ↓       ↘
+ security   environment   auxiliary views
+```
+
+## Technology
+
+- React 19 + Vite
+- Framer Motion
+- Firebase
+- Google Generative AI SDK
+- PeerJS
+- Tailwind-based styling utilities
+
+## Local development
+
+```bash
+npm install
+npm run dev
+```
+
+## Current boundary
+
+Many controls in this repository represent application state and prototype workflows rather than verified integrations with real locks, drones, HVAC hardware, or security infrastructure.
+
+Turning this into a real control system would require authenticated device APIs, hardware-specific adapters, secure key management, authorization boundaries, audit logging, fault handling, and extensive security testing.
+
+## Status
+
+Interface / systems-orchestration prototype exploring what a single high-context control surface for a connected environment could look like.
